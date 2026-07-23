@@ -7,16 +7,19 @@
 
 Verification is greedy (`temperature=0`), so the committed output is **token-identical** to running the target model alone with greedy decoding — the same losslessness argument as classic speculative decoding in the greedy case.
 
-## How it works
+## How It Works
 
-Each round:
+The whole scheme is a loop over a **single shared context** that both models keep re-reading. Each round:
 
-1. The client asks the draft server for up to `K` greedy continuation tokens (a `/v1/completions` call with the context as token IDs).
-2. The client sends `context + draft tokens` to the target server with `prompt_logprobs=1` and `max_tokens=1`. This is a single prefill pass that yields the target's argmax at every drafted position, plus one generated token.
-3. Drafted tokens are accepted left-to-right while they match the target's argmax:
+1. The draft model is given the entire context so far (original prompt + everything committed in previous rounds) and proposes the next `K` greedy tokens (a `/v1/completions` call with the context as token IDs).
+2. The client sends `context + draft tokens` to the target server with `prompt_logprobs=1` and `max_tokens=1`. This is a single prefill pass that yields the target's argmax at every drafted position, plus one generated token. Drafted tokens are accepted left-to-right while they match the target's argmax:
    - On the **first mismatch**, the target's rank-1 token at that position is committed as the correction, and the rest of the draft is dropped.
    - If **all `K` are accepted**, the target's single generated token is committed as the bonus token.
-4. Accepted tokens are appended to the shared context and the next round begins. With prefix caching enabled on both servers, each round's prefill is incremental rather than from scratch.
+3. The survivors — the accepted draft tokens plus the target's correction/bonus token — are appended to the shared context, and the next round feeds that grown context back to the draft again.
+
+So the target's corrections and bonus tokens are fed back into the draft on every subsequent round: the draft is always continuing from target-approved text, never from its own rejected guesses. That's what keeps the output identical to what the target alone would have generated greedily — the target's argmax decides every committed token, and the draft merely guesses ahead.
+
+This repetition is also why prefix caching matters: each round re-sends the whole growing context to both servers, but since only the tail is new, both servers reuse their KV cache for the prefix and only compute the new tokens.
 
 All prompts are exchanged as **token IDs** (not text), so there is no tokenizer round-trip drift between the two servers.
 
@@ -70,7 +73,7 @@ The generated text is printed to stdout once generation is complete (outside the
 | `--prompt` | (required) | The input prompt |
 | `--chat` | off | Wrap the prompt with the model's chat template |
 | `--k` | `5` | Draft tokens proposed per round |
-| `--max-new-tokens` | `256` | Maximum tokens to generate |
+| `--max-new-tokens` | `500` | Maximum tokens to generate |
 | `--tokenizer` | `--target-model` | HF tokenizer name used client-side for encoding/decoding |
 | `--stop-on-special` | off | Stop on any special token, not just `eos_token_id` |
 | `--timeout` | `120.0` | HTTP timeout in seconds |

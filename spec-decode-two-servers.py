@@ -241,7 +241,7 @@ def main():
                    help="Wrap the prompt with the model's chat template")
     p.add_argument("--k", type=int, default=5,
                    help="Draft tokens proposed per round")
-    p.add_argument("--max-new-tokens", type=int, default=256)
+    p.add_argument("--max-new-tokens", type=int, default=500)
     p.add_argument("--timeout", type=float, default=120.0)
     p.add_argument("--stop-on-special", action="store_true",
                    help="Stop on ANY special token, not just eos_token_id")

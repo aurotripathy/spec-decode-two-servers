@@ -6,6 +6,8 @@ python ./spec-decode-two-servers.py \
        --draft-model furiosa-ai/Qwen2.5-0.5B-Instruct \
        --prompt "what is 100 plus 110?" \
        --chat \
-       --k 5
+       --k 5 \
+       --verbose \
+       --max-new-tokens 1000
 
 
