@@ -49,16 +49,7 @@ import time
 import httpx
 from transformers import AutoTokenizer
 
-TOKEN_ID_PREFIX = "token_id:"
-
-
-def _parse_token_id(s: str) -> int:
-    """Servers return tokens as 'token_id:<int>' when return_tokens_as_token_ids=True."""
-    if not s.startswith(TOKEN_ID_PREFIX):
-        raise ValueError(f"Expected '{TOKEN_ID_PREFIX}<int>', got {s!r}. "
-                         "Does your server support "
-                         "return_tokens_as_token_ids?")
-    return int(s[len(TOKEN_ID_PREFIX):])
+from utils import fetch_model_id, parse_token_id
 
 
 async def draft_propose(client: httpx.AsyncClient, url: str, model: str,
@@ -76,7 +67,7 @@ async def draft_propose(client: httpx.AsyncClient, url: str, model: str,
     data = r.json()
     lp = data["choices"][0].get("logprobs") or {}
     toks = lp.get("tokens") or []
-    return [_parse_token_id(t) for t in toks]
+    return [parse_token_id(t) for t in toks]
 
 
 async def target_verify(client: httpx.AsyncClient, url: str, model: str,
@@ -131,19 +122,8 @@ async def target_verify(client: httpx.AsyncClient, url: str, model: str,
             return n_accepted, argmax_id   # correction token, rest of draft dropped
 
     # All drafted tokens accepted -> bonus token from the single generated step.
-    bonus = _parse_token_id(choice["logprobs"]["tokens"][0])
+    bonus = parse_token_id(choice["logprobs"]["tokens"][0])
     return n_accepted, bonus
-
-
-async def fetch_model_id(client: httpx.AsyncClient, url: str) -> str:
-    """GET /v1/models on the server and return the served model id."""
-    try:
-        r = await client.get(f"{url}/v1/models")
-        r.raise_for_status()
-    except httpx.HTTPError as e:
-        return f"<could not fetch: {e}>"
-    entries = r.json().get("data", [])
-    return ", ".join(e.get("id", "?") for e in entries) or "<none>"
 
 
 async def generate(args) -> None:
