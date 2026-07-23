@@ -161,6 +161,8 @@ async def generate(args) -> None:
     committed: list[int] = []
     rounds = drafted_total = accepted_total = 0
     t_draft = t_verify = 0.0
+
+    print("Generation Started:", file=sys.stderr, flush=True)
     t0 = time.perf_counter()
 
     limits = httpx.Limits(max_keepalive_connections=4)
@@ -211,19 +213,17 @@ async def generate(args) -> None:
             # the next round's prefill incremental rather than from-scratch.
             ids = ids + kept_this_round
 
-            if not args.quiet and kept_this_round:
-                sys.stdout.write(tok.decode(kept_this_round,
-                                            skip_special_tokens=True))
-                sys.stdout.flush()
+        wall = time.perf_counter() - t0
+        print("Generation Stopped:", file=sys.stderr, flush=True)
 
         draft_id, target_id = await asyncio.gather(
             fetch_model_id(client, args.draft_url),
             fetch_model_id(client, args.target_url))
 
-    wall = time.perf_counter() - t0
+    # Decode and print outside the timed region so output cost never
+    # pollutes the wall-time measurement.
     text = tok.decode(committed, skip_special_tokens=True)
-    if args.quiet:
-        print(text)
+    print(text)
 
     n = len(committed)
     print("\n" + "-" * 60, file=sys.stderr)
@@ -234,10 +234,13 @@ async def generate(args) -> None:
           f"({accepted_total}/{drafted_total})", file=sys.stderr)
     print(f"tokens per target pass  : {(n / rounds if rounds else 0):.2f}",
           file=sys.stderr)
-    print(f"wall time               : {wall:.2f}s "
-          f"({n / wall if wall > 0 else 0:.1f} tok/s)", file=sys.stderr)
-    print(f"  time in draft calls   : {t_draft:.2f}s", file=sys.stderr)
-    print(f"  time in verify calls  : {t_verify:.2f}s", file=sys.stderr)
+    if not args.verbose:
+        # Per-round logging perturbs the timings, so only report them
+        # when verbose is off.
+        print(f"wall time               : {wall:.2f}s "
+              f"({n / wall if wall > 0 else 0:.1f} tok/s)", file=sys.stderr)
+        print(f"  time in draft calls   : {t_draft:.2f}s", file=sys.stderr)
+        print(f"  time in verify calls  : {t_verify:.2f}s", file=sys.stderr)
 
     print("-" * 60, file=sys.stderr)
     print(f"draft model id          : {draft_id}", file=sys.stderr)
@@ -262,8 +265,6 @@ def main():
     p.add_argument("--timeout", type=float, default=120.0)
     p.add_argument("--stop-on-special", action="store_true",
                    help="Stop on ANY special token, not just eos_token_id")
-    p.add_argument("--quiet", action="store_true",
-                   help="Suppress streaming; print full text at the end")
     p.add_argument("--verbose", action="store_true",
                    help="Log each round to stderr: drafted tokens, "
                         "acceptance count, and the correction/bonus token")

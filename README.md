@@ -59,7 +59,7 @@ python ./spec-decode-two-servers.py \
     --prompt "what is 100 plus 110?"
 ```
 
-Generated text streams to stdout as tokens are committed; a stats summary is printed to stderr at the end.
+The generated text is printed to stdout once generation is complete (outside the timed region, so printing never affects the wall-time measurement); a stats summary is printed to stderr.
 
 ### Options
 
@@ -74,7 +74,6 @@ Generated text streams to stdout as tokens are committed; a stats summary is pri
 | `--tokenizer` | `--target-model` | HF tokenizer name used client-side for encoding/decoding |
 | `--stop-on-special` | off | Stop on any special token, not just `eos_token_id` |
 | `--timeout` | `120.0` | HTTP timeout in seconds |
-| `--quiet` | off | Suppress streaming; print the full text at the end |
 | `--verbose` | off | Log each round to stderr: drafted tokens, acceptance count, and the correction/bonus token |
 
 ## Output stats
@@ -85,7 +84,7 @@ At the end of a run, the client reports (on stderr):
 - **rounds (target passes)** — number of verify calls, i.e. target forward passes
 - **draft acceptance rate** — fraction of drafted tokens the target accepted
 - **tokens per target pass** — average committed tokens per verify round (higher is better; `1.0` would mean speculation is buying nothing)
-- **wall time** — end-to-end time and throughput, with a breakdown of time spent in draft vs. verify calls
+- **wall time** — generation time and throughput, with a breakdown of time spent in draft vs. verify calls. Only reported when `--verbose` is off, since per-round logging perturbs the timings.
 
 ## Tuning notes
 
