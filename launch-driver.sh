@@ -14,5 +14,7 @@ python ./spec-decode-two-servers.py \
        --target-model furiosa-ai/Qwen3-32B-FP8 \
        --draft-url http://0.0.0.0:8000 \
       --draft-model furiosa-ai/Qwen2.5-0.5B-Instruct \
-      --prompt "what is 100 plus 110?"
+      --prompt "what is 100 plus 110?" \
+      --verbose \
+      --k 3
 

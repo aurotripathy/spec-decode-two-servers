@@ -75,6 +75,7 @@ Generated text streams to stdout as tokens are committed; a stats summary is pri
 | `--stop-on-special` | off | Stop on any special token, not just `eos_token_id` |
 | `--timeout` | `120.0` | HTTP timeout in seconds |
 | `--quiet` | off | Suppress streaming; print the full text at the end |
+| `--verbose` | off | Log each round to stderr: drafted tokens, acceptance count, and the correction/bonus token |
 
 ## Output stats
 

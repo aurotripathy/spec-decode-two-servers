@@ -135,6 +135,17 @@ async def target_verify(client: httpx.AsyncClient, url: str, model: str,
     return n_accepted, bonus
 
 
+async def fetch_model_id(client: httpx.AsyncClient, url: str) -> str:
+    """GET /v1/models on the server and return the served model id."""
+    try:
+        r = await client.get(f"{url}/v1/models")
+        r.raise_for_status()
+    except httpx.HTTPError as e:
+        return f"<could not fetch: {e}>"
+    entries = r.json().get("data", [])
+    return ", ".join(e.get("id", "?") for e in entries) or "<none>"
+
+
 async def generate(args) -> None:
     tok = AutoTokenizer.from_pretrained(args.tokenizer or args.target_model)
 
@@ -177,6 +188,13 @@ async def generate(args) -> None:
             drafted_total += len(draft_ids)
             accepted_total += n_acc
 
+            if args.verbose:
+                outcome = "bonus" if n_acc == len(draft_ids) else "correction"
+                print(f"\n[round {rounds}] drafted {len(draft_ids)}: "
+                      f"{tok.decode(draft_ids)!r} | accepted {n_acc} | "
+                      f"{outcome}: {tok.decode([next_tok])!r} "
+                      f"(id {next_tok})", file=sys.stderr)
+
             new_tokens = draft_ids[:n_acc] + [next_tok]
             kept_this_round: list[int] = []
             for t in new_tokens:
@@ -198,6 +216,10 @@ async def generate(args) -> None:
                                             skip_special_tokens=True))
                 sys.stdout.flush()
 
+        draft_id, target_id = await asyncio.gather(
+            fetch_model_id(client, args.draft_url),
+            fetch_model_id(client, args.target_url))
+
     wall = time.perf_counter() - t0
     text = tok.decode(committed, skip_special_tokens=True)
     if args.quiet:
@@ -216,6 +238,10 @@ async def generate(args) -> None:
           f"({n / wall if wall > 0 else 0:.1f} tok/s)", file=sys.stderr)
     print(f"  time in draft calls   : {t_draft:.2f}s", file=sys.stderr)
     print(f"  time in verify calls  : {t_verify:.2f}s", file=sys.stderr)
+
+    print("-" * 60, file=sys.stderr)
+    print(f"draft model id          : {draft_id}", file=sys.stderr)
+    print(f"target model id         : {target_id}", file=sys.stderr)
 
 
 def main():
@@ -238,6 +264,9 @@ def main():
                    help="Stop on ANY special token, not just eos_token_id")
     p.add_argument("--quiet", action="store_true",
                    help="Suppress streaming; print full text at the end")
+    p.add_argument("--verbose", action="store_true",
+                   help="Log each round to stderr: drafted tokens, "
+                        "acceptance count, and the correction/bonus token")
     args = p.parse_args()
     asyncio.run(generate(args))
 
