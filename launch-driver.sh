@@ -15,5 +15,5 @@ python ./spec-decode-two-servers.py \
        --draft-url http://0.0.0.0:8000 \
        --draft-model furiosa-ai/Qwen2.5-0.5B-Instruct \
        --prompt "what is 100 plus 110?" \
-       --k 3
+       --k 5
 
