@@ -132,7 +132,7 @@ async def generate(args) -> None:
     if args.chat:
         ids = tok.apply_chat_template(
             [{"role": "user", "content": args.prompt}],
-            add_generation_prompt=True, tokenize=True)
+            add_generation_prompt=True, tokenize=True, return_dict=False)
     else:
         ids = tok(args.prompt).input_ids
 
